@@ -3,10 +3,10 @@ name: Build & deploy
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 
 env:
   PUBLIC_URL: https://rbtying.github.io/letter-boxed-solver/
@@ -49,7 +49,7 @@ jobs:
       run:
         working-directory: ./letter-boxed-solver-ui
         
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/main'
     
     steps:
     - name: Download artifact
