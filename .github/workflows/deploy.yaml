@@ -7,9 +7,16 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
-env:
-  PUBLIC_URL: https://rbtying.github.io/letter-boxed-solver/
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -42,24 +49,16 @@ jobs:
         path: ./letter-boxed-solver-ui/build
   
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     name: Deploy
     needs: build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./letter-boxed-solver-ui
         
     if: github.ref == 'refs/heads/main'
     
     steps:
-    - name: Download artifact
-      uses: actions/download-artifact@v2
-      with:
-        name: production-files
-        path: ./build
-
     - name: Deploy to gh-pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./build
+      id: deployment
+      uses: actions/deploy-pages@v2
