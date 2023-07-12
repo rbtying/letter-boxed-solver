@@ -44,7 +44,7 @@ impl LetterBoxed {
         }
         let letters = sides
             .iter()
-            .flat_map(|s| s.chars().map(|c| c))
+            .flat_map(|s| s.chars())
             .collect::<BTreeSet<char>>();
 
         LetterBoxed {
@@ -54,7 +54,7 @@ impl LetterBoxed {
     }
 
     /// Validate that a given solution is correct on this board.
-    pub fn validate<'solution, 'word>(&self, solution: &'solution [&'word str]) -> bool {
+    pub fn validate(&self, solution: &[&str]) -> bool {
         for window in solution.windows(2) {
             if window[0].chars().last() != window[1].chars().next() {
                 return false;
@@ -64,7 +64,7 @@ impl LetterBoxed {
             let mut iter = word.chars();
             let mut current = iter.next();
 
-            while let Some(next) = iter.next() {
+            for next in iter {
                 if let Some(c) = current {
                     if self.nonadjacent.contains(&(c, next)) {
                         return false;
@@ -86,7 +86,7 @@ impl LetterBoxed {
     pub fn solve_with_builtin_list(&self, max_depth: usize) -> Vec<(Vec<&'static str>, usize)> {
         static WORDS_LIST: OnceLock<Vec<&'static str>> = OnceLock::new();
         let words = WORDS_LIST.get_or_init(|| WORDS.lines().map(|w| w.trim()).collect::<Vec<_>>());
-        self.solve(&words, max_depth)
+        self.solve(words, max_depth)
     }
 
     /// Solve using a provided word list, where all solutions will not
@@ -94,9 +94,9 @@ impl LetterBoxed {
     ///
     /// Note that the solver does not guarantee any solutions of `max_depth`
     /// length, as it prefers shorter solutions to longer ones.
-    pub fn solve<'words, 'word>(
+    pub fn solve<'word>(
         &self,
-        words: &'words [&'word str],
+        words: &[&'word str],
         max_depth: usize,
     ) -> Vec<(Vec<&'word str>, usize)> {
         let mut results = vec![];
@@ -236,7 +236,7 @@ impl LetterBoxed {
     }
 }
 
-const WORDS: &'static str = include_str!("words.txt");
+const WORDS: &str = include_str!("words.txt");
 
 #[cfg(test)]
 mod tests {

@@ -19,24 +19,66 @@ function App() {
     <div className="App">
       <h1>Letter Boxed Solver</h1>
       <p>
-        <a href="https://www.nytimes.com/puzzles/letter-boxed" target="_blank" rel="noreferrer">Letter Boxed on NYT Games</a>
+        <a
+          href="https://www.nytimes.com/puzzles/letter-boxed"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Letter Boxed on NYT Games
+        </a>
       </p>
       <p>
-        Type the four sides of the Letter Boxed Puzzle here, and the maximum number of words
+        Type the four sides of the Letter Boxed Puzzle here, and the maximum
+        number of words
       </p>
       <p>
-        <input type="text" placeholder="top" value={side1} onChange={(evt) => setSide1(evt.target.value.toUpperCase())} />
-        <input type="text" placeholder="right" value={side2} onChange={(evt) => setSide2(evt.target.value.toUpperCase())} />
-        <input type="text" placeholder="bottom" value={side3} onChange={(evt) => setSide3(evt.target.value.toUpperCase())} />
-        <input type="text" placeholder="left" value={side4} onChange={(evt) => setSide4(evt.target.value.toUpperCase())} />
-        <input type="number" value={depth} onChange={(evt) => setDepth(evt.target.value)} />
+        <input
+          type="text"
+          placeholder="top"
+          value={side1}
+          onChange={(evt) => setSide1(evt.target.value.toUpperCase())}
+        />
+        <input
+          type="text"
+          placeholder="right"
+          value={side2}
+          onChange={(evt) => setSide2(evt.target.value.toUpperCase())}
+        />
+        <input
+          type="text"
+          placeholder="bottom"
+          value={side3}
+          onChange={(evt) => setSide3(evt.target.value.toUpperCase())}
+        />
+        <input
+          type="text"
+          placeholder="left"
+          value={side4}
+          onChange={(evt) => setSide4(evt.target.value.toUpperCase())}
+        />
+        <input
+          type="number"
+          value={depth}
+          onChange={(evt) => setDepth(evt.target.value)}
+        />
       </p>
       <p>
-        <button onClick={() => {
-          setSolving(true);
-          setSolution(wasm.solve(side1, side2, side3, side4, depth));
-          setSolving(false);
-        }} disabled={side1.length === 0 || side2.length === 0 || side3.length === 0 || side4.length === 0 || solving}>Solve</button>
+        <button
+          onClick={() => {
+            setSolving(true);
+            setSolution(wasm.solve(side1, side2, side3, side4, depth));
+            setSolving(false);
+          }}
+          disabled={
+            side1.length === 0 ||
+            side2.length === 0 ||
+            side3.length === 0 ||
+            side4.length === 0 ||
+            solving
+          }
+        >
+          Solve
+        </button>
       </p>
       <pre>{solution}</pre>
     </div>
