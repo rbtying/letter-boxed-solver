@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.linkedProjects": [
+        ".\\letter-boxed-solver-ui\\letter-boxed-solver-wasm\\Cargo.toml"
+    ]
+}
