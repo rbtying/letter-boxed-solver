@@ -18,6 +18,9 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
+env:
+  PUBLIC_URL: https://rbtying.github.io/letter-boxed-solver
+
 jobs:
   build:
     name: Build
