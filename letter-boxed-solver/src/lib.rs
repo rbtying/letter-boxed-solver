@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
 use std::sync::OnceLock;
 
 /// A basic solver for the New York Times "Letter Boxed" puzzle.
@@ -81,23 +81,38 @@ impl LetterBoxed {
     /// Solve using a built-in hardcoded word list, where all solutions will not
     /// exceed `max_depth` in length.
     ///
-    /// Note that the solver does not guarantee any solutions of `max_depth`
-    /// length, as it prefers shorter solutions to longer ones.
-    pub fn solve_with_builtin_list(&self, max_depth: usize) -> Vec<(Vec<&'static str>, usize)> {
+    /// The solver prefers shorter solutions to longer solutions, and will
+    /// return up to `max_results` solutions.
+    ///
+    /// `prior_words` are words (all-caps) which have already been played. This
+    /// will crash if an element in `prior_words` is not in the builtin word list.
+    pub fn solve_with_builtin_list(
+        &self,
+        prior_words: &[&str],
+        max_depth: usize,
+        max_results: usize,
+    ) -> Vec<(Vec<&'static str>, usize)> {
         static WORDS_LIST: OnceLock<Vec<&'static str>> = OnceLock::new();
         let words = WORDS_LIST.get_or_init(|| WORDS.lines().map(|w| w.trim()).collect::<Vec<_>>());
-        self.solve(words, max_depth)
+        let mut prior_words_indices = vec![];
+        for w in prior_words {
+            let idx = words.iter().position(|ww| ww == w).unwrap();
+            prior_words_indices.push(idx);
+        }
+        self.solve(words, &prior_words_indices, max_depth, max_results)
     }
 
     /// Solve using a provided word list, where all solutions will not
     /// exceed `max_depth` in length.
     ///
-    /// Note that the solver does not guarantee any solutions of `max_depth`
-    /// length, as it prefers shorter solutions to longer ones.
+    /// `prior_words_indices` should correspond to any words that have already
+    /// been played, represented as indices into `words`.
     pub fn solve<'word>(
         &self,
         words: &[&'word str],
+        prior_words_indices: &[usize],
         max_depth: usize,
+        max_results: usize,
     ) -> Vec<(Vec<&'word str>, usize)> {
         let mut results = vec![];
 
@@ -114,9 +129,9 @@ impl LetterBoxed {
         //   R Y U
         //
         // This would include an entry 'V' -> 'R' {..., "VEHICULAR", ...}
-        let mut graph: BTreeMap<char, BTreeMap<char, BTreeSet<&str>>> = BTreeMap::new();
+        let mut graph: BTreeMap<char, BTreeMap<char, BTreeSet<usize>>> = BTreeMap::new();
 
-        'outer: for w in words {
+        'outer: for (i, w) in words.iter().enumerate() {
             let w = w.trim();
             // Eliminate words that are too short, and those which contain
             // letters not on the board at all
@@ -138,7 +153,7 @@ impl LetterBoxed {
             }
 
             let options = graph.entry(first_char).or_default();
-            options.entry(current_char).or_default().insert(w);
+            options.entry(current_char).or_default().insert(i);
         }
 
         /// State for the word-search.
@@ -148,79 +163,82 @@ impl LetterBoxed {
             cur: char,
             /// All the letters we've visited on this path
             visited: BTreeSet<char>,
+            path: Vec<usize>,
         }
 
-        // We keep a backtrack map which points from a given state to its
-        // parent state, as well as the word used to get there and (for
-        // convenient) the depth of the path to get to that state.
-        let mut backtrack: HashMap<State, (State, &str, usize)> = HashMap::new();
-
-        let mut stk = vec![];
+        let mut q = VecDeque::new();
 
         let mut best = (0, vec![]);
 
-        // Preload the stack at each possible start location
-        for k in graph.keys() {
+        if prior_words_indices.is_empty() {
+            // Preload the queue at each possible start location
+            for k in graph.keys() {
+                let mut visited = BTreeSet::new();
+                visited.insert(*k);
+                q.push_back(State {
+                    cur: *k,
+                    visited,
+                    path: vec![],
+                })
+            }
+        } else {
+            let last_c = words[prior_words_indices[prior_words_indices.len() - 1]]
+                .chars()
+                .last()
+                .unwrap();
             let mut visited = BTreeSet::new();
-            visited.insert(*k);
-            stk.push(State { cur: *k, visited })
+
+            for idx in prior_words_indices {
+                visited.extend(words[*idx].chars());
+            }
+
+            q.push_back(State {
+                cur: last_c,
+                visited,
+                path: prior_words_indices.to_vec(),
+            })
         }
 
-        while let Some(state) = stk.pop() {
-            let mut path = vec![];
-            let mut ptr = &state;
-
-            // This runs in log time, so probably not worth optimizing quite
-            // yet. We could cache it in `backtrack`, similar to the depth.
-            while let Some(parent) = backtrack.get(ptr) {
-                path.push(parent.1);
-                ptr = &parent.0;
-            }
-            path.reverse();
-
-            // Bail out if the length is too long.
-            if path.len() + 1 > max_depth {
-                continue;
-            }
-
+        while let Some(state) = q.pop_front() {
             // Keep track of the best-available solution, since we might not
             // find one with the given max_depth.
             if state.visited.len() > best.0
-                || (state.visited.len() == best.0 && path.len() < best.1.len())
+                || (state.visited.len() == best.0 && state.path.len() < best.1.len())
             {
-                best = (state.visited.len(), path.clone());
+                best = (state.visited.len(), state.path.clone());
             }
 
             // Check if we're done!
             if state.visited == self.letters {
-                results.push((path.clone(), self.letters.len()));
+                results.push((state.path.clone(), self.letters.len()));
+
+                if results.len() >= max_results {
+                    break;
+                }
             } else if let Some(options) = graph.get(&state.cur) {
+                if state.path.len() + 1 > max_depth {
+                    continue;
+                }
                 // Go through all the potential end-letters
-                for (next_letter, words) in options {
+                for (next_letter, word_indices) in options {
                     // and all the paths to get there
-                    for w in words {
+                    for idx in word_indices {
+                        let w = words[*idx];
                         // only consider routes that add a new word to the visited set
                         if w.chars().any(|c| !state.visited.contains(&c)) {
                             let mut v = state.visited.clone();
                             v.extend(w.chars());
 
+                            let mut new_path = state.path.clone();
+                            new_path.push(*idx);
+
                             let new_state = State {
                                 cur: *next_letter,
                                 visited: v,
+                                path: new_path,
                             };
 
-                            // Update this state in the backtrack table (and add
-                            // it to the stack) if:
-                            //
-                            // 1. we've never been there before, or,
-                            // 2. we've been there before, but using a longer
-                            //    path than the one we took to get here.
-                            if backtrack.get(&new_state).map(|s| s.2).unwrap_or(usize::MAX)
-                                > path.len()
-                            {
-                                backtrack.insert(new_state.clone(), (state.clone(), w, path.len()));
-                                stk.push(new_state);
-                            }
+                            q.push_back(new_state);
                         }
                     }
                 }
@@ -233,6 +251,9 @@ impl LetterBoxed {
         }
 
         results
+            .into_iter()
+            .map(|(idxes, c)| (idxes.into_iter().map(|idx| words[idx]).collect(), c))
+            .collect()
     }
 }
 
@@ -245,7 +266,7 @@ mod tests {
     #[test]
     fn test_1() {
         let b = LetterBoxed::load_board(&["OAL", "NUK", "CET", "RPI"]);
-        let results = b.solve_with_builtin_list(3);
+        let results = b.solve_with_builtin_list(&[], 3, 25);
         assert!(!results.is_empty());
         for r in results {
             assert!(b.validate(&r.0));
@@ -255,7 +276,27 @@ mod tests {
     #[test]
     fn test_2() {
         let b = LetterBoxed::load_board(&["ELZ", "IVA", "RYU", "CTH"]);
-        let results = b.solve_with_builtin_list(4);
+        let results = b.solve_with_builtin_list(&[], 3, 25);
+        assert!(!results.is_empty());
+        for r in results {
+            assert!(b.validate(&r.0));
+        }
+    }
+
+    #[test]
+    fn test_3() {
+        let b = LetterBoxed::load_board(&["RTF", "USY", "HIA", "OEB"]);
+        let results = b.solve_with_builtin_list(&[], 2, 25);
+        assert!(!results.is_empty());
+        for r in results {
+            assert!(b.validate(&r.0));
+        }
+    }
+
+    #[test]
+    fn test_4() {
+        let b = LetterBoxed::load_board(&["RTF", "USY", "HIA", "OEB"]);
+        let results = b.solve_with_builtin_list(&["STATUTORY"], 2, 25);
         assert!(!results.is_empty());
         for r in results {
             assert!(b.validate(&r.0));

@@ -9,11 +9,12 @@ await wasm;
 function App() {
   const [solving, setSolving] = React.useState(false);
   const [solution, setSolution] = React.useState("");
+  const [priorWords, setPriorWords] = React.useState("");
   const [side1, setSide1] = React.useState("");
   const [side2, setSide2] = React.useState("");
   const [side3, setSide3] = React.useState("");
   const [side4, setSide4] = React.useState("");
-  const [depth, setDepth] = React.useState(4);
+  const [depth, setDepth] = React.useState(2);
 
   return (
     <div className="App">
@@ -59,15 +60,29 @@ function App() {
         <input
           type="number"
           value={depth}
-          onChange={(evt) => setDepth(evt.target.value)}
+          onChange={(evt) => setDepth(parseInt(evt.target.value, 10))}
+        />
+      </p>
+      <p>
+        If you have a prefix of words you want to start with, enter them
+        here:&nbsp;
+        <input
+          type="text"
+          placeholder=""
+          value={priorWords}
+          onChange={(evt) => setPriorWords(evt.target.value.toUpperCase())}
         />
       </p>
       <p>
         <button
           onClick={() => {
             setSolving(true);
-            setSolution(wasm.solve(side1, side2, side3, side4, depth));
-            setSolving(false);
+            setTimeout(() => {
+              setSolution(
+                wasm.solve(side1, side2, side3, side4, priorWords, depth)
+              );
+              setSolving(false);
+            }, 0);
           }}
           disabled={
             side1.length === 0 ||
